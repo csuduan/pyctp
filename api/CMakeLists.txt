@@ -157,8 +157,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_target_properties(${TD_API} PROPERTIES
         PREFIX ""                              # 去掉 lib 前缀
         SUFFIX ".so"
-        BUILD_RPATH "$ORIGIN/lib/ctp:$ORIGIN/lib/rohon"
-        INSTALL_RPATH "$ORIGIN/lib/ctp:$ORIGIN/lib/rohon"
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
     )
     target_link_libraries(${TD_API}
         ${CTP_BUILD_LIBS_DIR}/libthosttraderapi_se.so
@@ -232,8 +232,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_target_properties(${MD_API} PROPERTIES
         PREFIX ""                              # 去掉 lib 前缀
         SUFFIX ".so"
-        BUILD_RPATH "$ORIGIN/lib/ctp:$ORIGIN/lib/rohon"
-        INSTALL_RPATH "$ORIGIN/lib/ctp:$ORIGIN/lib/rohon"
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
     )
     target_link_libraries(${MD_API}
         ${CTP_BUILD_LIBS_DIR}/libthostmduserapi_se.so

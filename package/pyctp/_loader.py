@@ -34,8 +34,8 @@ IMPLEMENTATIONS = {
         'linux': {
             'libs': ['libthosttraderapi_se.so', 'libthostmduserapi_se.so'],
             'priority': ['libthosttraderapi_se.so', 'libthostmduserapi_se.so']
-            # 注意：rohon 的额外依赖（librohonbase.so, libLinuxDataCollect.so）
-            # 通过 libthosttraderapi_se.so 的 DT_NEEDED 自动加载，无需预加载
+            # 注意：这些库的 RPATH 已被设置为 $ORIGIN，
+            # 它们会自动加载同目录下的依赖（librohonbase.so, libLinuxDataCollect.so）
         },
         'darwin': {
             'libs': ['libthosttraderapi_se.dylib', 'libthostmduserapi_se.dylib'],
