@@ -162,9 +162,27 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     )
     target_link_libraries(${TD_API}
         ${CTP_BUILD_LIBS_DIR}/libthosttraderapi_se.so
-        ${BOOST_LIB_DIRS}/libboost_locale.so
-        ${BOOST_LIB_DIRS}/libboost_system.so
     )
+    # Boost 库链接
+    if(BOOST_LIB_DIRS)
+        target_link_libraries(${TD_API}
+            ${BOOST_LIB_DIRS}/libboost_locale.so
+            ${BOOST_LIB_DIRS}/libboost_system.so
+        )
+    else()
+        find_library(BOOST_LOCALE_LIB boost_locale)
+        find_library(BOOST_SYSTEM_LIB boost_system)
+        if(BOOST_LOCALE_LIB)
+            target_link_libraries(${TD_API} ${BOOST_LOCALE_LIB})
+        else()
+            target_link_libraries(${TD_API} boost_locale)
+        endif()
+        if(BOOST_SYSTEM_LIB)
+            target_link_libraries(${TD_API} ${BOOST_SYSTEM_LIB})
+        else()
+            target_link_libraries(${TD_API} boost_system)
+        endif()
+    endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set_target_properties(${TD_API} PROPERTIES
         PREFIX ""
@@ -219,8 +237,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     )
     target_link_libraries(${MD_API}
         ${CTP_BUILD_LIBS_DIR}/libthostmduserapi_se.so
-        boost_locale
     )
+    # Boost 库链接
+    if(BOOST_LIB_DIRS)
+        target_link_libraries(${MD_API} ${BOOST_LIB_DIRS}/libboost_locale.so)
+    else()
+        find_library(BOOST_LOCALE_LIB boost_locale)
+        if(BOOST_LOCALE_LIB)
+            target_link_libraries(${MD_API} ${BOOST_LOCALE_LIB})
+        else()
+            target_link_libraries(${MD_API} boost_locale)
+        endif()
+    endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set_target_properties(${MD_API} PROPERTIES
         PREFIX ""
