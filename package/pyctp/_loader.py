@@ -32,43 +32,22 @@ IMPLEMENTATIONS = {
     },
     'rohon': {
         'linux': {
-            'libs': [
-                'libthosttraderapi_se.so',
-                'libthostmduserapi_se.so',
-                'librohonbase.so',
-                'LinuxDataCollect.so'
-            ],
-            # 按依赖顺序：先加载基础库，再加载接口库
-            'priority': [
-                'LinuxDataCollect.so',
-                'librohonbase.so',
-                'libthosttraderapi_se.so',
-                'libthostmduserapi_se.so'
-            ]
+            'libs': ['libthosttraderapi_se.so', 'libthostmduserapi_se.so'],
+            'priority': ['libthosttraderapi_se.so', 'libthostmduserapi_se.so']
+            # 注意：rohon 的额外依赖（librohonbase.so, libLinuxDataCollect.so）
+            # 通过 libthosttraderapi_se.so 的 DT_NEEDED 自动加载，无需预加载
+        },
+        'darwin': {
+            'libs': ['libthosttraderapi_se.dylib', 'libthostmduserapi_se.dylib'],
+            'priority': ['libthosttraderapi_se.dylib', 'libthostmduserapi_se.dylib']
         },
         'win32': {
-            'libs': [
-                'thosttraderapi_se.dll',
-                'thostmduserapi_se.dll',
-                'rohonbase.dll'
-            ],
-            'priority': [
-                'rohonbase.dll',
-                'thosttraderapi_se.dll',
-                'thostmduserapi_se.dll'
-            ]
+            'libs': ['thosttraderapi_se.dll', 'thostmduserapi_se.dll', 'rohonbase.dll'],
+            'priority': ['rohonbase.dll', 'thosttraderapi_se.dll', 'thostmduserapi_se.dll']
         },
         'win64': {
-            'libs': [
-                'thosttraderapi_se.dll',
-                'thostmduserapi_se.dll',
-                'rohonbase.dll'
-            ],
-            'priority': [
-                'rohonbase.dll',
-                'thosttraderapi_se.dll',
-                'thostmduserapi_se.dll'
-            ]
+            'libs': ['thosttraderapi_se.dll', 'thostmduserapi_se.dll', 'rohonbase.dll'],
+            'priority': ['rohonbase.dll', 'thosttraderapi_se.dll', 'thostmduserapi_se.dll']
         },
     }
 }
