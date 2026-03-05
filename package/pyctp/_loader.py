@@ -36,11 +36,11 @@ IMPLEMENTATIONS = {
                 'libthosttraderapi_se.so',
                 'libthostmduserapi_se.so',
                 'librohonbase.so',
-                'libLinuxDataCollect.so'
+                'LinuxDataCollect.so'
             ],
             # 按依赖顺序：先加载基础库，再加载接口库
             'priority': [
-                'libLinuxDataCollect.so',
+                'LinuxDataCollect.so',
                 'librohonbase.so',
                 'libthosttraderapi_se.so',
                 'libthostmduserapi_se.so'
