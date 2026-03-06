@@ -9,6 +9,8 @@
 
 ## 编译
 ### Linux及Mac编译
+如果mac中动态库是.framework格式，需要使用先用convert_dylib.sh脚本转换为.dylib格式
+
 1. 安装依赖
 * macos
 ```
@@ -19,26 +21,20 @@ brew install swig  boost cmake
 sudo apt install swig  boost-dev cmake
 ```
 
-2. 编译库
+2. 编译
 
 ```
-cd api
-mkdir build
-cd build
-cmake ..
-make
+./build.sh
 ```
 
-3. 打pip包
+3. 打wheel包
 ```
-cd package
-python install .
-
+python -m build --wheel
 ```
 
 ### Windows编译
+【待测试】   
  
-
 ## 参考
 * openctp 
 * vnpy_ctp
