@@ -155,6 +155,20 @@ EOF
             done
         fi
 
+        # Linux: 如果 so 文件的 SONAME 与文件名不同，创建符号链接
+        if [[ "$platform" == "linux" ]]; then
+            for so_file in "$package_impl_dir"/*.so; do
+                if [[ -f "$so_file" ]]; then
+                    local soname=$(readelf -d "$so_file" 2>/dev/null | grep SONAME | sed 's/.*\[//;s/\].*//')
+                    local base_name=$(basename "$so_file")
+                    if [[ -n "$soname" && "$soname" != "$base_name" && ! -f "$package_impl_dir/$soname" && ! -L "$package_impl_dir/$soname" ]]; then
+                        echo "  创建符号链接: $soname -> $base_name"
+                        ln -s "$base_name" "$package_impl_dir/$soname"
+                    fi
+                fi
+            done
+        fi
+
     done
 
     echo -e "${GREEN}拷贝完成${NC}"
