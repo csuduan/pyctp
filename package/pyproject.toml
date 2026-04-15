@@ -11,16 +11,13 @@ description = "CTP (China Futures Market) Python API Wrapper with multi-implemen
 dependencies = []
 
 [tool.setuptools]
-packages = ["pyctp", "pyctp.ctp", "pyctp.rohon"]
+packages = ["pyctp", "pyctp.ctp", "pyctp.rohon", "pyctp.jees"]
 include-package-data = true
 
 [tool.setuptools.package-data]
 pyctp = [
-    "*.so",
-    "*.pyd",
-    "*.dll",
-    "lib/**/*.so",
-    "lib/**/*.dylib",
-    "lib/**/*.dll",
-    "lib/**/*",
+    "**/*.so",
+    "**/*.dylib",
+    "**/*.dll",
+    "**/*",
 ]

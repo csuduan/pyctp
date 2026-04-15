@@ -209,3 +209,14 @@ __marimo__/
 
 # 其他
 *.con
+
+# pyctp generated implementation files and directories
+package/pyctp/*.py
+package/pyctp/*.so
+package/pyctp/*.pyd
+package/pyctp/*.dylib
+package/pyctp/*.dll
+!package/pyctp/__init__.py
+package/pyctp/ctp/
+package/pyctp/rohon/
+package/pyctp/jees/

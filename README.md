@@ -21,15 +21,15 @@ brew install swig  boost cmake
 sudo apt install swig  boost-dev cmake
 ```
 
-2. 编译
+2. 构建
 
 ```
 ./build.sh
 ```
 
-3. 打wheel包
+3. 安装wheel包
 ```
-python -m build --wheel
+python install package/dist/*.whl
 ```
 
 ### Windows编译

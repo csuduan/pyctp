@@ -4,8 +4,8 @@
 # 功能：
 # 1. 编译 api 通过 cmake 和 make
 # 2. 拷贝相关文件到 package 中
-# 3. 为融航的库添加 RPATH
-# 4. 在 package 中执行打包和本地安装
+# 3. 为第三方实现库添加 RPATH
+# 4. 在 package 中打包 wheel
 
 set -e  # 遇到错误立即退出
 
@@ -90,13 +90,78 @@ build_api() {
     echo -e "${GREEN}API 编译完成${NC}"
 }
 
-# 步骤 2: 拷贝文件到 package（已由 cmake make 自动完成）
+# 步骤 2: 拷贝构建产物和原生库到 package
 copy_files() {
-    echo -e "${GREEN}[2/4] 文件已由 CMake 自动拷贝到 package 目录${NC}"
+    local platform="$1"
+
+    echo -e "${GREEN}[2/4] 拷贝构建产物到 package 目录...${NC}"
+
+    # 重新创建 package/pyctp 下的实现子目录，并生成 __init__.py
+    for impl_name in ctp rohon jees; do
+        local package_impl_dir="${PACKAGE_DIR}/pyctp/${impl_name}"
+        if [[ -d "$package_impl_dir" ]]; then
+            rm -rf "$package_impl_dir"
+        fi
+        mkdir -p "$package_impl_dir"
+
+        cat > "$package_impl_dir/__init__.py" << 'EOF'
+from . import thostmduserapi as mdapi
+from . import thosttraderapi as tdapi
+
+__all__ = ['mdapi', 'tdapi']
+EOF
+    done
+
+    # 遍历 build 目录下的所有实现子目录
+    for impl_build_dir in "${BUILD_DIR}"/*/; do
+        if [[ ! -d "$impl_build_dir" ]]; then
+            continue
+        fi
+
+        local impl_name=$(basename "$impl_build_dir")
+        # 跳过 CMake 内部目录
+        if [[ "$impl_name" == "CMakeFiles" ]]; then
+            continue
+        fi
+        local package_impl_dir="${PACKAGE_DIR}/pyctp/${impl_name}"
+        local impl_libs_dir="${API_DIR}/libs/${impl_name}/${platform}"
+
+        echo "  拷贝实现: ${impl_name}"
+        mkdir -p "$package_impl_dir"
+
+        # 拷贝 SWIG 构建产物 (.py, .so, .pyd)
+        for file in "${impl_build_dir}"/*; do
+            if [[ -f "$file" ]]; then
+                local filename=$(basename "$file")
+                case "$filename" in
+                    thosttraderapi.py|thostmduserapi.py|_thosttraderapi.so|_thostmduserapi.so|_thosttraderapi.pyd|_thostmduserapi.pyd)
+                        cp "$file" "$package_impl_dir/"
+                        ;;
+                esac
+            fi
+        done
+
+        # 拷贝原生库文件
+        if [[ -d "$impl_libs_dir" ]]; then
+            for lib_file in "$impl_libs_dir"/*; do
+                if [[ -f "$lib_file" ]]; then
+                    local lib_name=$(basename "$lib_file")
+                    case "$lib_name" in
+                        *.so|*.dylib|*.dll|*.lib)
+                            cp "$lib_file" "$package_impl_dir/"
+                            ;;
+                    esac
+                fi
+            done
+        fi
+
+    done
+
+    echo -e "${GREEN}拷贝完成${NC}"
 }
 
-# 步骤 3: 为融航的库添加 RPATH
-fix_rpath_rohon() {
+# 步骤 3: 为各实现库添加 RPATH
+fix_rpath() {
     local platform="$1"
 
     # 只有 Linux 平台需要设置 RPATH
@@ -105,7 +170,7 @@ fix_rpath_rohon() {
         return
     fi
 
-    echo -e "${GREEN}[3/4] 为融航库设置 RPATH...${NC}"
+    echo -e "${GREEN}[3/4] 为各实现库设置 RPATH...${NC}"
 
     # 检查 patchelf 是否存在
     if ! command -v patchelf &> /dev/null; then
@@ -114,45 +179,53 @@ fix_rpath_rohon() {
         return
     fi
 
-    local rohon_lib_dir="${PACKAGE_DIR}/pyctp/lib/rohon"
-
-    # 检查 rohon 目录是否存在
-    if [[ ! -d "$rohon_lib_dir" ]]; then
-        echo -e "${YELLOW}rohon 目录不存在，跳过 RPATH 设置${NC}"
-        return
-    fi
-
-    # 为 rohon 的 API 库设置 RPATH
-    for lib in libthosttraderapi_se.so libthostmduserapi_se.so; do
-        local lib_path="${rohon_lib_dir}/${lib}"
-        if [[ -f "$lib_path" ]]; then
-            echo "  设置 ${lib} 的 RPATH 为 \$ORIGIN..."
-            patchelf --set-rpath '$ORIGIN' "$lib_path"
+    # 遍历所有实现目录
+    for impl_dir in "${PACKAGE_DIR}/pyctp"/*/; do
+        if [[ ! -d "$impl_dir" ]]; then
+            continue
         fi
+
+        local impl_name=$(basename "$impl_dir")
+        if [[ "$impl_name" == "ctp" ]]; then
+            # CTP 官方库通常不需要额外 RPATH 修复
+            continue
+        fi
+
+        # 为该实现目录下的 API 库设置 RPATH
+        for lib in libthosttraderapi_se.so libthostmduserapi_se.so; do
+            local lib_path="${impl_dir}/${lib}"
+            if [[ -f "$lib_path" ]]; then
+                echo "  设置 ${impl_name}/${lib} 的 RPATH 为 \$ORIGIN..."
+                patchelf --set-rpath '$ORIGIN' "$lib_path"
+            fi
+        done
     done
 
     echo -e "${GREEN}RPATH 设置完成${NC}"
 }
 
-# 步骤 4: 在 package 中执行打包和本地安装
-install_package() {
-    echo -e "${GREEN}[4/4] 安装包到本地环境...${NC}"
+# 步骤 4: 在 package 中打包 wheel
+build_wheel() {
+    echo -e "${GREEN}[4/4] 打包 wheel...${NC}"
 
     cd "$PACKAGE_DIR"
 
-    # 本地安装
-    echo "执行 pip install -e ."
+    # 清理旧的 dist 目录
+    if [[ -d "dist" ]]; then
+        rm -rf dist
+    fi
+    mkdir -p dist
+
+    echo "执行 pip wheel . -w dist/"
 
     # 如果在 conda 环境中，使用 conda 的 pip
     if [[ -n "$CONDA_DEFAULT_ENV" ]] || [[ -n "$CONDA_PREFIX" ]]; then
-        # 在 conda 环境中
-        "$CONDA_PREFIX/bin/pip" install -e .
+        "$CONDA_PREFIX/bin/pip" wheel . -w dist/
     else
-        # 使用系统的 pip
-        pip install -e .
+        pip wheel . -w dist/
     fi
 
-    echo -e "${GREEN}本地安装完成${NC}"
+    echo -e "${GREEN}wheel 打包完成，输出目录: ${PACKAGE_DIR}/dist${NC}"
 }
 
 # 主函数
@@ -179,9 +252,9 @@ main() {
 
     # 执行构建步骤
     build_api "$platform"
-    copy_files
-    fix_rpath_rohon "$platform"
-    install_package
+    copy_files "$platform"
+    fix_rpath "$platform"
+    build_wheel
 
     echo ""
     echo -e "${GREEN}========================================${NC}"
