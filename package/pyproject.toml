@@ -1,23 +1,28 @@
 [build-system]
-requires = ["setuptools>=58", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-
 [project]
-name = "pyctp"
-version = "6.7.2"
-requires-python = ">=3.8"
+name = "ctpx"
+version = "6.7.2.1"
+requires-python = ">=3.12"
 description = "CTP (China Futures Market) Python API Wrapper with multi-implementation support"
 dependencies = []
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "csuduan", email = "csuduan@qq.com"},
+]
 
 [tool.setuptools]
-packages = ["pyctp", "pyctp.ctp", "pyctp.rohon", "pyctp.jees"]
+packages = ["ctpx", "ctpx.ctp", "ctpx.rohon", "ctpx.jees"]
 include-package-data = true
+zip-safe = false
 
 [tool.setuptools.package-data]
-pyctp = [
+ctpx = [
     "**/*.so",
     "**/*.dylib",
     "**/*.dll",
-    "**/*",
+    "**/*.lib",
 ]

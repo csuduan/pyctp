@@ -31,6 +31,11 @@ sudo apt install swig  boost-dev cmake
 ```
 python install package/dist/*.whl
 ```
+4. 分发到pypi
+```
+twine upload dist/*
+```
+
 
 ### Windows编译
 【待测试】   

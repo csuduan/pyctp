@@ -6,12 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Python wrapper for the CTP (China Futures Trading Platform) C++ API using SWIG. It enables Python applications to connect to Chinese futures exchanges through the official CTP protocol.
 
+The package supports multiple CTP-compatible implementations:
+- **ctp**: Official CTP libraries
+- **rohon**: Rohon (融航) compatible libraries
+- **jees**: Jees compatible libraries
+
+Each implementation uses its own header files and native libraries, allowing different API versions to coexist in the same package.
+
 ## Build Commands
 
 ### Prerequisites
 - cmake, swig, boost (with locale library)
 - Python 3.8+
-- Visual Studio (Windows) or gcc/clang (Linux)
+- Visual Studio (Windows) or gcc/clang (Linux/macOS)
 
 ### Environment Variables (if not using system packages)
 ```bash
@@ -32,74 +39,79 @@ set PYTHON_LIB=C:\Program Files\Python312\libs
 ./build.sh linux      # Linux build
 ./build.sh win32      # Windows 32-bit
 ./build.sh win64      # Windows 64-bit
+./build.sh mac        # macOS build
+```
 
-# Manual CMake build (Linux example)
+The build script performs the following steps:
+1. Compiles SWIG bindings via CMake (one per implementation)
+2. Copies build artifacts and native libraries to `package/pyctp/<impl>/`
+3. Fixes RPATH on Linux for third-party implementations
+4. Builds a wheel package in `package/dist/`
+
+### Manual CMake Build (for debugging)
+```bash
 cd api
 mkdir build && cd build
 cmake ..
 make
 ```
-
-### Package Installation
-```bash
-cd package
-pip install .
-
-# Create wheel package
-pip wheel . -w dist/
-```
+CMake only compiles the bindings; it does **not** copy files to `package/`.
 
 ## Architecture
 
 ### Directory Structure
 ```
-├── api/                    # C++ API wrapper source
-│   ├── CMakeLists.txt      # CMake build configuration
-│   ├── includes/           # CTP header files from upstream
-│   ├── libs/               # Pre-compiled native libraries
-│   │   ├── ctp/            # Official CTP libraries (linux, mac, win64)
-│   │   └── rohon/          # Rohon compatible libraries
-│   ├── thostmduserapi.i    # SWIG interface (market data)
-│   └── thosttraderapi.i    # SWIG interface (trading)
-├── demo/                   # Example usage code
-├── package/pyctp/          # Python package for distribution
-│   ├── __init__.py         # Package entry point with load() function
-│   ├── _loader.py          # Dynamic library loader
-│   ├── config.py           # Default implementation config
-│   └── lib/                # Library files populated at build
-└── build.sh                # Cross-platform build script
+├── api/                         # C++ API wrapper source
+│   ├── CMakeLists.txt           # CMake build configuration
+│   ├── libs/                    # Pre-compiled native libraries
+│   │   ├── ctp/
+│   │   │   ├── linux/
+│   │   │   │   ├── include/     # Platform-specific headers
+│   │   │   │   └── *.so
+│   │   │   ├── mac/
+│   │   │   │   ├── include/
+│   │   │   │   └── *.dylib
+│   │   │   └── win64/
+│   │   │       ├── include/
+│   │   │       └── *.dll
+│   │   ├── rohon/               # Rohon compatible libraries
+│   │   └── jees/                # Jees compatible libraries
+│   ├── thostmduserapi.i         # SWIG interface (market data)
+│   └── thosttraderapi.i         # SWIG interface (trading)
+├── demo/                        # Example usage code
+├── package/pyctp/               # Python package for distribution
+│   ├── __init__.py              # Package entry point
+│   ├── ctp/                     # CTP implementation (generated at build)
+│   ├── rohon/                   # Rohon implementation (generated at build)
+│   └── jees/                    # Jees implementation (generated at build)
+├── package/pyproject.toml       # Package configuration
+└── build.sh                     # Cross-platform build script
 ```
 
-### Dynamic Implementation Switching
+### Implementation Subpackages
 
-The package supports runtime switching between different CTP implementations:
+Each implementation is an isolated Python subpackage containing its own SWIG-generated bindings:
 
 ```python
-import pyctp
+# Use official CTP
+from pyctp.ctp import mdapi, tdapi
 
-# Load official CTP
-pyctp.load('ctp')
-from pyctp import mdapi, tdapi
+# Use Rohon
+from pyctp.rohon import mdapi, tdapi
 
-# Or load Rohon (融航) compatible implementation
-pyctp.load('rohon')
-from pyctp import mdapi, tdapi
+# Use Jees
+from pyctp.jees import mdapi, tdapi
 ```
 
-Implementation loading flow (`package/pyctp/_loader.py`):
-1. `load()` sets up library paths via `setup_library_path()`
-2. On Linux: preloads dependencies with `RTLD_GLOBAL` in dependency order
-3. On Windows: adds DLL directory via `os.add_dll_directory()` or PATH
-4. Imports SWIG-generated modules which then load the native libraries
-
-The `_loader.py` defines `IMPLEMENTATIONS` dict mapping implementation names to platform-specific library configurations including dependency loading order.
+**Note:** Only one implementation can be imported per Python process because the underlying C++ libraries export conflicting symbols.
 
 ### Build Flow
 
-1. SWIG generates Python wrappers and C++ binding code from `.i` interface files
-2. CMake compiles the C++ bindings into shared modules (`_thostmduserapi.so`, `_thosttraderapi.so`)
-3. Build script copies generated files + native libraries to `package/pyctp/`
-4. pip installs the complete package
+1. CMake generates and compiles separate SWIG bindings for each implementation into `api/build/<impl>/`
+2. `build.sh` copies the generated `.py`/`.so` (or `.pyd`) files plus native libraries to `package/pyctp/<impl>/`
+3. `build.sh` generates `__init__.py` in each implementation directory
+4. On Linux, `build.sh` may create symlinks if a `.so` file's SONAME differs from its filename (e.g., `thosttraderapi_se_6.7.2.so -> libthosttraderapi_se.so`)
+5. `build.sh` builds the wheel package via `pip wheel . -w dist/`
 
 ### Key Components
 
@@ -107,3 +119,7 @@ The `_loader.py` defines `IMPLEMENTATIONS` dict mapping implementation names to 
 - **tdapi** (`thosttraderapi`): Trading API (交易API) - sends orders, queries positions
 
 Both APIs use async callback patterns via SPI classes that must be subclassed.
+
+### Version Control
+
+Only `package/pyctp/__init__.py` is tracked in git. The implementation directories (`ctp/`, `rohon/`, `jees/`) and all generated library files are ignored because they are produced by `build.sh`.

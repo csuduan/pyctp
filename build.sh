@@ -23,17 +23,23 @@ BUILD_DIR="${API_DIR}/build"
 
 # 显示帮助信息
 show_help() {
-    echo "用法: $0 [linux|win32|win64|mac]"
+    echo "用法: $0 [选项] [平台]"
     echo ""
-    echo "选项:"
+    echo "平台选项:"
     echo "  linux   - 构建 Linux 版本 (默认)"
     echo "  win32   - 构建 Windows 32 位版本"
     echo "  win64   - 构建 Windows 64 位版本"
     echo "  mac     - 构建 macOS 版本"
     echo ""
+    echo "其他选项:"
+    echo "  --python VERSION  - 指定 Python 版本 (默认: 3.12)"
+    echo "                      例如: --python 3.13"
+    echo "  -h, --help        - 显示此帮助信息"
+    echo ""
     echo "示例:"
-    echo "  $0 linux      # 构建 Linux 版本"
-    echo "  $0 win64      # 构建 Windows 64 位版本"
+    echo "  $0 mac                # 构建 macOS 版本，使用默认 Python 3.12"
+    echo "  $0 --python 3.13 mac  # 构建 macOS 版本，使用 Python 3.13"
+    echo "  $0 linux              # 构建 Linux 版本，使用默认 Python 3.12"
 }
 
 # 检测平台
@@ -96,9 +102,9 @@ copy_files() {
 
     echo -e "${GREEN}[2/4] 拷贝构建产物到 package 目录...${NC}"
 
-    # 重新创建 package/pyctp 下的实现子目录，并生成 __init__.py
+    # 重新创建 package/ctpx 下的实现子目录，并生成 __init__.py
     for impl_name in ctp rohon jees; do
-        local package_impl_dir="${PACKAGE_DIR}/pyctp/${impl_name}"
+        local package_impl_dir="${PACKAGE_DIR}/ctpx/${impl_name}"
         if [[ -d "$package_impl_dir" ]]; then
             rm -rf "$package_impl_dir"
         fi
@@ -123,7 +129,7 @@ EOF
         if [[ "$impl_name" == "CMakeFiles" ]]; then
             continue
         fi
-        local package_impl_dir="${PACKAGE_DIR}/pyctp/${impl_name}"
+        local package_impl_dir="${PACKAGE_DIR}/ctpx/${impl_name}"
         local impl_libs_dir="${API_DIR}/libs/${impl_name}/${platform}"
 
         echo "  拷贝实现: ${impl_name}"
@@ -194,7 +200,7 @@ fix_rpath() {
     fi
 
     # 遍历所有实现目录
-    for impl_dir in "${PACKAGE_DIR}/pyctp"/*/; do
+    for impl_dir in "${PACKAGE_DIR}/ctpx"/*/; do
         if [[ ! -d "$impl_dir" ]]; then
             continue
         fi
@@ -220,6 +226,9 @@ fix_rpath() {
 
 # 步骤 4: 在 package 中打包 wheel
 build_wheel() {
+    local platform="$1"
+    local python_version="$2"
+
     echo -e "${GREEN}[4/4] 打包 wheel...${NC}"
 
     cd "$PACKAGE_DIR"
@@ -230,26 +239,90 @@ build_wheel() {
     fi
     mkdir -p dist
 
-    echo "执行 pip wheel . -w dist/"
-
-    # 如果在 conda 环境中，使用 conda 的 pip
-    if [[ -n "$CONDA_DEFAULT_ENV" ]] || [[ -n "$CONDA_PREFIX" ]]; then
-        "$CONDA_PREFIX/bin/pip" wheel . -w dist/
+    # 确定使用的 Python 解释器
+    local python_cmd="python"
+    if [[ -n "$python_version" ]]; then
+        local venv_dir=".venv${python_version//./}"
+        # 检查虚拟环境是否存在
+        if [[ ! -d "$venv_dir" ]]; then
+            echo -e "${YELLOW}创建 Python ${python_version} 虚拟环境...${NC}"
+            if command -v uv &> /dev/null; then
+                uv venv --python "$python_version" "$venv_dir"
+                uv pip install build setuptools wheel --python "$venv_dir/bin/python"
+            else
+                echo -e "${RED}错误: uv 未安装，无法创建指定 Python 版本的环境${NC}"
+                echo -e "${YELLOW}请安装 uv: https://github.com/astral-sh/uv${NC}"
+                exit 1
+            fi
+        fi
+        python_cmd="$venv_dir/bin/python"
+        echo "使用 Python ${python_version}: $python_cmd"
     else
-        pip wheel . -w dist/
+        # 默认使用 Python 3.12
+        python_version="3.12"
+        local venv_dir=".venv312"
+        if [[ ! -d "$venv_dir" ]]; then
+            echo -e "${YELLOW}创建默认 Python 3.12 虚拟环境...${NC}"
+            if command -v uv &> /dev/null; then
+                uv venv --python 3.12 "$venv_dir"
+                uv pip install build setuptools wheel --python "$venv_dir/bin/python"
+            else
+                echo -e "${RED}错误: uv 未安装，无法创建 Python 3.12 环境${NC}"
+                echo -e "${YELLOW}请安装 uv: https://github.com/astral-sh/uv${NC}"
+                exit 1
+            fi
+        fi
+        python_cmd="$venv_dir/bin/python"
+        echo "使用默认 Python 3.12: $python_cmd"
     fi
 
+    # 使用 python -m build 构建 wheel
+    # setup.py 中的 has_ext_modules=lambda: True 会自动检测平台标签
+    echo "执行 $python_cmd -m build --wheel"
+    "$python_cmd" -m build --wheel
+
     echo -e "${GREEN}wheel 打包完成，输出目录: ${PACKAGE_DIR}/dist${NC}"
+    ls -lh dist/
 }
 
 # 主函数
 main() {
-    local platform
-    platform=$(detect_platform "$1")
+    local platform=""
+    local python_version=""
+
+    # 解析命令行参数
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --python)
+                python_version="$2"
+                shift 2
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -*)
+                echo -e "${RED}错误: 未知选项 $1${NC}"
+                show_help
+                exit 1
+                ;;
+            *)
+                platform="$1"
+                shift
+                ;;
+        esac
+    done
+
+    platform=$(detect_platform "$platform")
 
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}  pyctp 构建脚本${NC}"
     echo -e "${GREEN}  平台: $platform${NC}"
+    if [[ -n "$python_version" ]]; then
+        echo -e "${GREEN}  Python: $python_version${NC}"
+    else
+        echo -e "${GREEN}  Python: 系统默认${NC}"
+    fi
     echo -e "${GREEN}========================================${NC}"
     echo ""
 
@@ -268,7 +341,7 @@ main() {
     build_api "$platform"
     copy_files "$platform"
     fix_rpath "$platform"
-    build_wheel
+    build_wheel "$platform" "$python_version"
 
     echo ""
     echo -e "${GREEN}========================================${NC}"

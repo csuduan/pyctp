@@ -210,13 +210,13 @@ __marimo__/
 # 其他
 *.con
 
-# pyctp generated implementation files and directories
-package/pyctp/*.py
-package/pyctp/*.so
-package/pyctp/*.pyd
-package/pyctp/*.dylib
-package/pyctp/*.dll
-!package/pyctp/__init__.py
-package/pyctp/ctp/
-package/pyctp/rohon/
-package/pyctp/jees/
+# ctpx generated implementation files and directories
+package/ctpx/*.py
+package/ctpx/*.so
+package/ctpx/*.pyd
+package/ctpx/*.dylib
+package/ctpx/*.dll
+!package/ctpx/__init__.py
+package/ctpx/ctp/
+package/ctpx/rohon/
+package/ctpx/jees/
