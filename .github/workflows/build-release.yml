@@ -66,31 +66,39 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # Linux 构建 (使用 manylinux 容器)
+  # Linux 构建 (使用 cibuildwheel 标准方案)
   # ============================================================================
   build-linux:
-    strategy:
-      fail-fast: false
-      matrix:
-        manylinux: [manylinux_2_28]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build in manylinux container
-        run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            -w /workspace \
-            quay.io/pypa/${{ matrix.manylinux }}_x86_64:latest \
-            bash /workspace/.github/workflows/build-linux.sh
+      - name: Build wheels with cibuildwheel
+        uses: pypa/cibuildwheel@v2.21
+        env:
+          CIBW_BUILD: cp312-manylinux_x86_64
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_BEFORE_ALL: |
+            dnf install -y cmake swig boost-devel patchelf python3-devel gcc-c++ make
+          CIBW_BEFORE_BUILD: |
+            cd {project}/api
+            rm -rf build
+            mkdir -p build && cd build
+            cmake ..
+            make -j$(nproc)
+            cd {project}
+            bash .github/workflows/copy-files.sh linux
+          CIBW_REPAIR_WHEEL_COMMAND: |
+            auditwheel repair -w {dest_dir} {wheel}
+        with:
+          package-dir: package
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ctpx-linux-${{ matrix.manylinux }}
-          path: package/dist/*.whl
+          name: ctpx-linux-manylinux_2_28
+          path: package/wheelhouse/*.whl
           retention-days: 7
 
   # ============================================================================
