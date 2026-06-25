@@ -11,9 +11,6 @@ on:
         required: true
         default: 'v6.7.2'
 
-permissions:
-  contents: write
-
 jobs:
   # ============================================================================
   # macOS 构建
@@ -25,6 +22,9 @@ jobs:
         os: [macos-15]
         python-version: ['3.12']
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      actions: write
     env:
       MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
@@ -59,49 +59,17 @@ jobs:
   # ============================================================================
   build-linux:
     runs-on: ubuntu-latest
-    env:
-      CIBW_BUILD_VERBOSITY: 3
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install cibuildwheel
-        run: pip install cibuildwheel==4.1.0
-
       - name: Build wheels
-        run: |
-          set -o pipefail
-          mkdir -p wheelhouse
-          python -m cibuildwheel --output-dir wheelhouse . 2>&1 | tee cibuildwheel.log
-
-      - name: Post cibuildwheel log as commit comment on failure
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python - <<'PY'
-          import json, os, urllib.request
-          log_lines = open('cibuildwheel.log').read().splitlines()
-          body = "cibuildwheel failed. Last 200 lines of log:\n\n```\n" + "\n".join(log_lines[-200:]) + "\n```"
-          data = json.dumps({"body": body}).encode()
-          req = urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments",
-              data=data,
-              headers={
-                  "Authorization": f"token {os.environ['GITHUB_TOKEN']}",
-                  "Accept": "application/vnd.github.v3+json"
-              }
-          )
-          urllib.request.urlopen(req)
-          PY
+        uses: pypa/cibuildwheel@v4.1.0
 
       - name: Upload wheel artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ctpx-linux-manylinux_2_34
@@ -109,23 +77,35 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # 发布 Release
+  # 发布到 PyPI 并创建 GitHub Release
   # ============================================================================
-  release:
+  release-and-publish:
     needs: [build-macos, build-linux]
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ctpx
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
     steps:
-      - name: Download all artifacts
+      - name: Download wheel artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: dist/
           pattern: ctpx-*
+          merge-multiple: true
 
-      - name: Collect wheels
+      - name: List downloaded wheels
         run: |
-          mkdir -p release
-          find artifacts -name "*.whl" -exec cp {} release/ \;
-          ls -la release/
+          ls -la dist/
+          find dist -name "*.whl" | sort
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
       - name: Get tag name
         id: get_tag
@@ -136,7 +116,7 @@ jobs:
             echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create/Update Release
+      - name: Create/Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
@@ -150,9 +130,9 @@ jobs:
 
             ## Install
             ```bash
-            pip install ctpx --find-links https://github.com/csuduan/pyctp/releases
+            pip install ctpx
             ```
-          files: release/*.whl
+          files: dist/*.whl
           draft: false
           prerelease: false
         env:
