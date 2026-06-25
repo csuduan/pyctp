@@ -39,22 +39,11 @@ jobs:
       - name: Install dependencies
         run: |
           brew install cmake swig boost
-          pip install --upgrade pip setuptools wheel build
+          pip install --upgrade build
 
-      - name: Build API
+      - name: Build wheel
         run: |
-          cd api
-          mkdir -p build && cd build
-          cmake ..
-          make -j$(sysctl -n hw.ncpu)
-          cd ../..
-
-      - name: Copy files to src
-        run: bash .github/workflows/copy-files.sh mac
-
-      - name: Package wheel
-        run: |
-          rm -rf dist build src/*.egg-info
+          rm -rf dist build _skbuild
           python -m build --wheel
           ls -la dist/
 
@@ -76,8 +65,6 @@ jobs:
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.23.0
-        with:
-          package-dir: src
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4

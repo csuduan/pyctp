@@ -99,6 +99,7 @@ ipython_config.py
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
 #uv.lock
+uv.lock
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
@@ -210,13 +211,10 @@ __marimo__/
 # 其他
 *.con
 
-# ctpx generated implementation files and directories
-src/ctpx/*.py
-src/ctpx/*.so
-src/ctpx/*.pyd
-src/ctpx/*.dylib
-src/ctpx/*.dll
-!src/ctpx/__init__.py
-src/ctpx/ctp/
-src/ctpx/rohon/
-src/ctpx/jees/
+# scikit-build-core / manual cmake 生成的二进制产物与 SWIG .py
+src/ctpx/*/*.py
+src/ctpx/*/*.so
+src/ctpx/*/*.dylib
+src/ctpx/*/*.pyd
+src/ctpx/*/*.dll
+!src/ctpx/*/__init__.py

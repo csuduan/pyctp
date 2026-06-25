@@ -35,11 +35,23 @@ sudo apt install swig libboost-all-dev cmake
 
 ## 编译
 
+项目使用 [scikit-build-core](https://scikit-build-core.readthedocs.io/) 作为构建后端，构建时会自动调用 CMake 编译 SWIG 扩展并打包成 wheel。
+
+```bash
+python -m build --wheel
+```
+
+构建完成后，wheel 位于 `dist/`。
+
+也可以继续使用项目根目录的 `build.sh` 脚本作为快捷入口（内部仅做清理并调用 `python -m build --wheel`）：
+
 ```bash
 ./build.sh
 ```
 
-构建完成后，wheel 位于 `dist/`。
+### Linux manylinux 发布版
+
+发布到 PyPI 的 Linux wheel 需要在 manylinux 容器中构建并使用 `auditwheel repair`。本项目通过 `cibuildwheel` 在 GitHub Actions 中完成这一流程，详见 `.github/workflows/build-release.yml`。
 
 ## 安装本地 wheel
 

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
 project(pyctp)
 
@@ -279,6 +279,78 @@ function(build_impl IMPL_NAME)
                 target_link_libraries(${MD_TARGET} boost_locale)
             endif()
         endif()
+    endif()
+
+    # -------------------------------------------------------------------------
+    # 安装规则：将 SWIG 产物、扩展模块和预编译原生库放入 wheel
+    # -------------------------------------------------------------------------
+    install(FILES
+        ${TD_WRAPPER_PY}
+        ${MD_WRAPPER_PY}
+        DESTINATION ctpx/${IMPL_NAME}
+    )
+
+    install(TARGETS
+        ${TD_TARGET}
+        ${MD_TARGET}
+        LIBRARY DESTINATION ctpx/${IMPL_NAME}
+        RUNTIME DESTINATION ctpx/${IMPL_NAME}
+        ARCHIVE DESTINATION ctpx/${IMPL_NAME}
+    )
+
+    # 安装预编译原生库（.so / .dylib / .dll / .lib）
+    file(GLOB IMPL_PREBUILT_LIBS
+        "${IMPL_BUILD_LIBS_DIR}/*.so"
+        "${IMPL_BUILD_LIBS_DIR}/*.dylib"
+        "${IMPL_BUILD_LIBS_DIR}/*.dll"
+        "${IMPL_BUILD_LIBS_DIR}/*.lib"
+    )
+    if(IMPL_PREBUILT_LIBS)
+        install(FILES ${IMPL_PREBUILT_LIBS} DESTINATION ctpx/${IMPL_NAME})
+    endif()
+
+    # Linux：为 SONAME 不同的库创建符号链接，确保运行时加载器能找到
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND IMPL_PREBUILT_LIBS)
+        foreach(lib_file ${IMPL_PREBUILT_LIBS})
+            get_filename_component(lib_name ${lib_file} NAME)
+            if(lib_name MATCHES "\\.so$")
+                execute_process(
+                    COMMAND readelf -d ${lib_file}
+                    OUTPUT_VARIABLE readelf_out
+                    ERROR_QUIET
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                )
+                if(readelf_out MATCHES "SONAME[^[]*\\[([^]]*)\\]")
+                    set(soname ${CMAKE_MATCH_1})
+                    if(NOT soname STREQUAL lib_name)
+                        install(CODE "
+                            set(_link_path \"\${CMAKE_INSTALL_PREFIX}/ctpx/${IMPL_NAME}/${soname}\")
+                            if(NOT EXISTS \"\${_link_path}\")
+                                file(CREATE_LINK \"${lib_name}\" \"\${_link_path}\" SYMBOLIC)
+                            endif()
+                        ")
+                    endif()
+                endif()
+            endif()
+        endforeach()
+    endif()
+
+    # Linux：为第三方实现库设置 RPATH，使其在 $ORIGIN 中解析依赖
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT IMPL_NAME STREQUAL "ctp")
+        install(CODE "
+            foreach(_lib_name libthosttraderapi_se.so libthostmduserapi_se.so)
+                set(_lib_path \"\${CMAKE_INSTALL_PREFIX}/ctpx/${IMPL_NAME}/\${_lib_name}\")
+                if(EXISTS \${_lib_path})
+                    execute_process(
+                        COMMAND patchelf --set-rpath \"\$ORIGIN\" \${_lib_path}
+                        RESULT_VARIABLE _patchelf_result
+                    )
+                    if(NOT _patchelf_result EQUAL 0)
+                        message(WARNING \"patchelf failed for \${_lib_path}\")
+                    endif()
+                endif()
+            endforeach()
+        ")
     endif()
 
 endfunction()
