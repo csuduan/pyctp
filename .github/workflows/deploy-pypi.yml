@@ -42,8 +42,10 @@ jobs:
           path: dist/
           if_no_artifact_found: fail
 
-      - name: List downloaded wheels
+      - name: Flatten dist directory
         run: |
+          find dist -type f -name "*.whl" -exec mv {} dist/ \;
+          find dist -mindepth 1 -type d -empty -delete
           ls -la dist/
           find dist -name "*.whl" | sort
 
