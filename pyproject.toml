@@ -5,7 +5,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "ctpx"
 version = "6.7.2"
-requires-python = ">=3.12"
+requires-python = "==3.12.*"
 description = "CTP (China Futures Market) Python API Wrapper with multi-implementation support"
 dependencies = []
 readme = "README.md"
@@ -20,7 +20,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: C++",
     "Operating System :: MacOS",
@@ -42,7 +41,7 @@ url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 default = true
 
 [tool.cibuildwheel]
-build = "cp312-* cp313-*"
+build = "cp312-*"
 skip = "*-musllinux_*"
 manylinux-x86_64-image = "manylinux_2_34"
 

@@ -34,6 +34,8 @@ sudo apt install swig libboost-all-dev cmake
 
 ```bash
 ./build.sh
+或者
+uv build
 ```
 
 ### Linux manylinux 发布版
