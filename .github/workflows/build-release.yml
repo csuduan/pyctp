@@ -59,14 +59,49 @@ jobs:
   # ============================================================================
   build-linux:
     runs-on: ubuntu-latest
+    env:
+      CIBW_BUILD_VERBOSITY: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==4.1.0
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.1.0
+        run: |
+          set -o pipefail
+          mkdir -p wheelhouse
+          python -m cibuildwheel --output-dir wheelhouse . 2>&1 | tee cibuildwheel.log
+
+      - name: Post cibuildwheel log as commit comment on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          log_lines = open('cibuildwheel.log').read().splitlines()
+          body = "cibuildwheel failed. Last 200 lines of log:\n\n```\n" + "\n".join(log_lines[-200:]) + "\n```"
+          data = json.dumps({"body": body}).encode()
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments",
+              data=data,
+              headers={
+                  "Authorization": f"token {os.environ['GITHUB_TOKEN']}",
+                  "Accept": "application/vnd.github.v3+json"
+              }
+          )
+          urllib.request.urlopen(req)
+          PY
 
       - name: Upload wheel artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ctpx-linux-manylinux_2_34
