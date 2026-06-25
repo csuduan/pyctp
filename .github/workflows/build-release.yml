@@ -118,22 +118,13 @@ jobs:
           rm -rf dist
           mkdir -p dist
           pip wheel . -w dist/
-
-      - name: Repair wheel with auditwheel
-        run: |
-          cd package
-          for whl in dist/*.whl; do
-            if [[ -f "$whl" ]]; then
-              auditwheel repair "$whl" --plat manylinux_2_31_x86_64 -w wheelhouse/
-            fi
-          done
-          ls -la wheelhouse/
+          ls -la dist/
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ctpx-linux-manylinux_2_31
-          path: package/wheelhouse/*.whl
+          name: ctpx-linux-ubuntu2204
+          path: package/dist/*.whl
           retention-days: 7
 
   # ============================================================================
