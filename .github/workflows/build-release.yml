@@ -66,38 +66,73 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # Linux 构建 (使用 cibuildwheel 标准方案)
+  # Linux 构建 (直接在 Ubuntu 上编译 + auditwheel 修复)
   # ============================================================================
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build wheels with cibuildwheel
-        uses: pypa/cibuildwheel@v2.21
-        env:
-          CIBW_BUILD: cp312-manylinux_x86_64
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_BEFORE_ALL: |
-            dnf install -y cmake swig boost-devel patchelf python3-devel gcc-c++ make
-          CIBW_BEFORE_BUILD: |
-            cd {project}/api
-            rm -rf build
-            mkdir -p build && cd build
-            cmake ..
-            make -j$(nproc)
-            cd {project}
-            bash .github/workflows/copy-files.sh linux
-          CIBW_REPAIR_WHEEL_COMMAND: |
-            auditwheel repair -w {dest_dir} {wheel}
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          package-dir: package
+          python-version: '3.12'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake swig libboost-all-dev patchelf python3-dev build-essential
+          pip install --upgrade pip setuptools wheel build auditwheel
+
+      - name: Build API
+        run: |
+          cd api
+          rm -rf build
+          mkdir -p build && cd build
+          cmake ..
+          make -j$(nproc)
+          cd ../..
+
+      - name: Copy files to package
+        run: bash .github/workflows/copy-files.sh linux
+
+      - name: Fix RPATH
+        run: |
+          for impl_dir in package/ctpx/*/; do
+            if [[ ! -d "$impl_dir" ]]; then continue; fi
+            impl_name=$(basename "$impl_dir")
+            if [[ "$impl_name" == "ctp" ]]; then continue; fi
+            for lib in libthosttraderapi_se.so libthostmduserapi_se.so; do
+              lib_path="${impl_dir}/${lib}"
+              if [[ -f "$lib_path" ]]; then
+                echo "Setting RPATH for ${impl_name}/${lib}"
+                patchelf --set-rpath '$ORIGIN' "$lib_path"
+              fi
+            done
+          done
+
+      - name: Build wheel
+        run: |
+          cd package
+          rm -rf dist
+          mkdir -p dist
+          pip wheel . -w dist/
+
+      - name: Repair wheel with auditwheel
+        run: |
+          cd package
+          for whl in dist/*.whl; do
+            if [[ -f "$whl" ]]; then
+              auditwheel repair "$whl" --plat manylinux_2_31_x86_64 -w wheelhouse/
+            fi
+          done
+          ls -la wheelhouse/
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ctpx-linux-manylinux_2_28
+          name: ctpx-linux-manylinux_2_31
           path: package/wheelhouse/*.whl
           retention-days: 7
 
