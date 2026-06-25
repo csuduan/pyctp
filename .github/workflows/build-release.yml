@@ -75,6 +75,7 @@ jobs:
 
       - name: Build wheels
         run: |
+          set -o pipefail
           mkdir -p wheelhouse
           python -m cibuildwheel --output-dir wheelhouse . 2>&1 | tee cibuildwheel.log
 
