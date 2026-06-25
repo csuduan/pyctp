@@ -59,14 +59,35 @@ jobs:
   # ============================================================================
   build-linux:
     runs-on: ubuntu-latest
+    env:
+      CIBW_BUILD_VERBOSITY: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.23.0
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23.0
+        run: |
+          mkdir -p wheelhouse
+          python -m cibuildwheel --output-dir wheelhouse . 2>&1 | tee cibuildwheel.log
+
+      - name: Upload cibuildwheel log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctpx-linux-cibuildwheel-log
+          path: cibuildwheel.log
+          retention-days: 3
 
       - name: Upload wheel artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ctpx-linux-manylinux_2_34
