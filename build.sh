@@ -9,6 +9,15 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# 创建 uv 虚拟环境（已存在则跳过）
+if [ ! -d ".venv" ]; then
+    uv venv --python 3.12
+fi
+source .venv/bin/activate
+
+# 安装构建依赖
+uv pip install build scikit-build-core
+
 # 清理旧的构建产物
 rm -rf dist build _skbuild src/*.egg-info *.egg-info
 

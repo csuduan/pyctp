@@ -36,10 +36,15 @@ cmake.source-dir = "api"
 wheel.packages = ["src/ctpx"]
 install.strip = true
 
+
+[[tool.uv.index]]
+url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+default = true
+
 [tool.cibuildwheel]
 build = "cp312-* cp313-*"
 skip = "*-musllinux_*"
-manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
+manylinux-x86_64-image = "manylinux_2_34"
 
 [tool.cibuildwheel.linux]
 before-build = """
