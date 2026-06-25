@@ -23,8 +23,8 @@ endif()
 
 message(STATUS "CTP Platform: ${CTP_PLATFORM}")
 
-# 查找 Python
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+# 查找 Python（扩展模块只需 Development.Module，不需要 Embed）
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 message(STATUS "Python3 found: ${Python3_EXECUTABLE}")
 message(STATUS "Python3 include: ${Python3_INCLUDE_DIRS}")
 message(STATUS "Python3 library: ${Python3_LIBRARIES}")
