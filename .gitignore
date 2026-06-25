@@ -211,12 +211,12 @@ __marimo__/
 *.con
 
 # ctpx generated implementation files and directories
-package/ctpx/*.py
-package/ctpx/*.so
-package/ctpx/*.pyd
-package/ctpx/*.dylib
-package/ctpx/*.dll
-!package/ctpx/__init__.py
-package/ctpx/ctp/
-package/ctpx/rohon/
-package/ctpx/jees/
+src/ctpx/*.py
+src/ctpx/*.so
+src/ctpx/*.pyd
+src/ctpx/*.dylib
+src/ctpx/*.dll
+!src/ctpx/__init__.py
+src/ctpx/ctp/
+src/ctpx/rohon/
+src/ctpx/jees/

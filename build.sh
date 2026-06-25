@@ -3,9 +3,9 @@
 #
 # 功能：
 # 1. 编译 api 通过 cmake 和 make
-# 2. 拷贝相关文件到 package 中
+# 2. 拷贝相关文件到 src 中
 # 3. 为第三方实现库添加 RPATH
-# 4. 在 package 中打包 wheel
+# 4. 在 src 中打包 wheel
 
 set -e  # 遇到错误立即退出
 
@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_DIR="${SCRIPT_DIR}/api"
-PACKAGE_DIR="${SCRIPT_DIR}/package"
+SRC_DIR="${SCRIPT_DIR}/src"
 BUILD_DIR="${API_DIR}/build"
 
 # 显示帮助信息
@@ -104,7 +104,7 @@ copy_files() {
 
     # 重新创建 package/ctpx 下的实现子目录，并生成 __init__.py
     for impl_name in ctp rohon jees; do
-        local package_impl_dir="${PACKAGE_DIR}/ctpx/${impl_name}"
+        local package_impl_dir="${SRC_DIR}/ctpx/${impl_name}"
         if [[ -d "$package_impl_dir" ]]; then
             rm -rf "$package_impl_dir"
         fi
@@ -129,7 +129,7 @@ EOF
         if [[ "$impl_name" == "CMakeFiles" ]]; then
             continue
         fi
-        local package_impl_dir="${PACKAGE_DIR}/ctpx/${impl_name}"
+        local package_impl_dir="${SRC_DIR}/ctpx/${impl_name}"
         local impl_libs_dir="${API_DIR}/libs/${impl_name}/${platform}"
 
         echo "  拷贝实现: ${impl_name}"
@@ -200,7 +200,7 @@ fix_rpath() {
     fi
 
     # 遍历所有实现目录
-    for impl_dir in "${PACKAGE_DIR}/ctpx"/*/; do
+    for impl_dir in "${SRC_DIR}/ctpx"/*/; do
         if [[ ! -d "$impl_dir" ]]; then
             continue
         fi
@@ -224,14 +224,15 @@ fix_rpath() {
     echo -e "${GREEN}RPATH 设置完成${NC}"
 }
 
-# 步骤 4: 在 package 中打包 wheel
+# 步骤 4: 在项目根目录打包 wheel
 build_wheel() {
     local platform="$1"
     local python_version="$2"
 
     echo -e "${GREEN}[4/4] 打包 wheel...${NC}"
 
-    cd "$PACKAGE_DIR"
+    # pyproject.toml/setup.py 已移到项目根目录，必须从根目录构建
+    cd "$SCRIPT_DIR"
 
     # 清理旧的 dist 目录
     if [[ -d "dist" ]]; then
@@ -281,7 +282,7 @@ build_wheel() {
     echo "执行 $python_cmd -m build --wheel"
     "$python_cmd" -m build --wheel
 
-    echo -e "${GREEN}wheel 打包完成，输出目录: ${PACKAGE_DIR}/dist${NC}"
+    echo -e "${GREEN}wheel 打包完成，输出目录: ${SCRIPT_DIR}/dist${NC}"
     ls -lh dist/
 }
 

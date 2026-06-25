@@ -25,6 +25,8 @@ jobs:
         os: [macos-15]
         python-version: ['3.12']
     runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,84 +49,41 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           cd ../..
 
-      - name: Copy files to package
+      - name: Copy files to src
         run: bash .github/workflows/copy-files.sh mac
 
       - name: Package wheel
         run: |
-          cd package
-          rm -rf dist
-          mkdir -p dist
-          pip wheel . -w dist/
+          rm -rf dist build src/*.egg-info
+          python -m build --wheel
           ls -la dist/
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
           name: ctpx-macos-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: package/dist/*.whl
+          path: dist/*.whl
           retention-days: 7
 
   # ============================================================================
-  # Linux 构建 (直接在 Ubuntu 上编译 + auditwheel 修复)
+  # Linux 构建 (cibuildwheel + manylinux_2_34)
   # ============================================================================
   build-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.0
         with:
-          python-version: '3.12'
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake swig libboost-all-dev patchelf python3-dev build-essential
-          pip install --upgrade pip setuptools wheel build auditwheel
-
-      - name: Build API
-        run: |
-          cd api
-          rm -rf build
-          mkdir -p build && cd build
-          cmake ..
-          make -j$(nproc)
-          cd ../..
-
-      - name: Copy files to package
-        run: bash .github/workflows/copy-files.sh linux
-
-      - name: Fix RPATH
-        run: |
-          for impl_dir in package/ctpx/*/; do
-            if [[ ! -d "$impl_dir" ]]; then continue; fi
-            impl_name=$(basename "$impl_dir")
-            if [[ "$impl_name" == "ctp" ]]; then continue; fi
-            for lib in libthosttraderapi_se.so libthostmduserapi_se.so; do
-              lib_path="${impl_dir}/${lib}"
-              if [[ -f "$lib_path" ]]; then
-                echo "Setting RPATH for ${impl_name}/${lib}"
-                patchelf --set-rpath '$ORIGIN' "$lib_path"
-              fi
-            done
-          done
-
-      - name: Build wheel
-        run: |
-          cd package
-          rm -rf dist
-          mkdir -p dist
-          pip wheel . -w dist/
-          ls -la dist/
+          package-dir: src
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ctpx-linux-ubuntu2204
-          path: package/dist/*.whl
+          name: ctpx-linux-manylinux_2_34
+          path: wheelhouse/*.whl
           retention-days: 7
 
   # ============================================================================
@@ -164,8 +123,8 @@ jobs:
             ctpx wheel packages for macOS and Linux.
 
             ## Supported Platforms
-            - macOS (arm64)
-            - Linux (manylinux compatible)
+            - macOS (arm64, macOS >= 11.0)
+            - Linux (x86_64, manylinux_2_34, compatible with Ubuntu 22.04+)
 
             ## Install
             ```bash

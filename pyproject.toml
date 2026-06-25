@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctpx"
+version = "6.7.2"
+requires-python = ">=3.12"
+description = "CTP (China Futures Market) Python API Wrapper with multi-implementation support"
+dependencies = []
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "csuduan", email = "csuduan@qq.com"},
+]
+keywords = ["ctp", "futures", "china", "trading", "api", "swig"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: C++",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Office/Business :: Financial",
+]
+urls = {Homepage = "https://github.com/csuduan/pyctp", Repository = "https://github.com/csuduan/pyctp"}
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["ctpx", "ctpx.ctp", "ctpx.rohon", "ctpx.jees"]
+include-package-data = true
+license-files = ["LICENSE"]
+
+[tool.setuptools.package-data]
+ctpx = [
+    "ctp/*",
+    "rohon/*",
+    "jees/*",
+]
+
+[tool.cibuildwheel]
+build = "cp312-* cp313-*"
+skip = "*-musllinux_*"
+manylinux-x86_64-image = "manylinux_2_34"
+
+[tool.cibuildwheel.linux]
+before-build = """
+dnf install -y cmake swig boost-devel patchelf
+rm -rf {package}/../api/build {package}/ctpx/ctp {package}/ctpx/rohon {package}/ctpx/jees
+cd {package}/../api && mkdir -p build && cd build && cmake .. && make -j$(nproc)
+cd {package}/..
+bash .github/workflows/copy-files.sh linux
+for impl_dir in {package}/ctpx/*/; do
+    impl_name=$(basename "$impl_dir")
+    [[ "$impl_name" == "ctp" ]] && continue
+    for lib in libthosttraderapi_se.so libthostmduserapi_se.so; do
+        lib_path="${impl_dir}/${lib}"
+        [[ -f "$lib_path" ]] && patchelf --set-rpath '$ORIGIN' "$lib_path"
+    done
+done
+"""
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"

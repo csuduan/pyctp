@@ -7,10 +7,10 @@ CTP (China Futures Market) Python API Wrapper
 
 使用方法：
     # 使用官方CTP实现
-    from pyctp.ctp import mdapi, tdapi
+    from ctpx.ctp import mdapi, tdapi
 
     # 使用融航实现
-    from pyctp.rohon import mdapi, tdapi
+    from ctpx.rohon import mdapi, tdapi
 
 注意：同一进程中只能使用一种实现，不可同时导入 ctp 和 rohon。
 """

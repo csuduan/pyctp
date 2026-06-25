@@ -1,49 +1,81 @@
-# pyctp
-本项目使用swig将ctp的c++接口转为python接口
+# ctpx
+
+本项目使用 SWIG 将 CTP C++ 接口封装为 Python 接口，支持官方 CTP 库或三方兼容库（如融航、杰宜斯等）。
+
+## 安装
+
+```bash
+pip install ctpx
+```
+
 ## 依赖
-本项目依赖以下库(请根据实际情况安装)：
-- python
-- swig
-- boost
-- cmake
+
+若从源码构建，需要安装以下工具：
+
+- Python >= 3.12
+- SWIG
+- Boost
+- CMake
+
+### macOS
+
+```bash
+brew install swig boost cmake
+```
+
+### Linux
+
+```bash
+sudo apt install swig libboost-all-dev cmake
+```
+
+### Windows
+
+【待测试】
 
 ## 编译
-### Linux及Mac编译
-如果mac中动态库是.framework格式，需要使用先用convert_dylib.sh脚本转换为.dylib格式
 
-1. 安装依赖
-* macos
-```
-brew install swig  boost cmake
-```
-* linux
-```
-sudo apt install swig  boost-dev cmake
-```
-
-2. 构建
-
-```
+```bash
 ./build.sh
 ```
 
-3. 安装wheel包
-```
-python install package/dist/*.whl
-```
-4. 分发到pypi
-```
-twine upload dist/*
+构建完成后，wheel 位于 `dist/`。
+
+## 安装本地 wheel
+
+```bash
+pip install dist/*.whl
 ```
 
 
-### Windows编译
-【待测试】   
- 
+## 使用方法
+
+### 官方 CTP 实现
+
+```python
+from ctpx.ctp import mdapi, tdapi
+
+trader_api = tdapi.CThostFtdcTraderApi.CreateFtdcTraderApi()
+md_api = mdapi.CThostFtdcMdApi.CreateFtdcMdApi()
+```
+
+### 融航实现
+
+```python
+from ctpx.rohon import mdapi, tdapi
+
+trader_api = tdapi.CThostFtdcTraderApi.CreateFtdcTraderApi()
+md_api = mdapi.CThostFtdcMdApi.CreateFtdcMdApi()
+```
+
+## 注意事项
+
+1. **同一进程只能使用一种实现**：不可同时导入 `ctpx.ctp` 和 `ctpx.rohon`。
+2. **Windows DLL 搜索**：Python 3.8+ 使用 `os.add_dll_directory`，旧版本需要设置 `PATH`。
+3. **Linux 预加载**：使用 `ctypes.CDLL(..., RTLD_GLOBAL)` 确保符号全局可见。
+
 ## 参考
-* openctp 
-* vnpy_ctp
-* [CTPAPI-Python开发攻略](https://zhuanlan.zhihu.com/p/688672132)。
 
-  
-
+- openctp
+- vnpy_ctp
+- [CTPAPI-Python 开发攻略](https://zhuanlan.zhihu.com/p/688672132)
