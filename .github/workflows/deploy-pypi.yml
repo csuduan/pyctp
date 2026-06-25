@@ -1,0 +1,42 @@
+name: Deploy to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'build-release.yml 的 run id（留空则使用 main 分支最新成功构建）'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ctpx
+    steps:
+      - name: Download wheel artifacts from build-release
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          workflow: build-release.yml
+          run_id: ${{ github.event.inputs.run_id }}
+          branch: main
+          name: ctpx-*
+          name_is_regexp: true
+          path: dist/
+          if_no_artifact_found: fail
+
+      - name: List downloaded wheels
+        run: |
+          ls -la dist/
+          find dist -name "*.whl" | sort
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
