@@ -1,0 +1,180 @@
+name: Build and Release Wheels
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release (e.g., v6.7.2)'
+        required: true
+        default: 'v6.7.2'
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================================
+  # macOS 构建
+  # ============================================================================
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+        python-version: ['3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          brew install cmake swig boost
+          pip install --upgrade pip setuptools wheel build
+
+      - name: Build API
+        run: |
+          cd api
+          mkdir -p build && cd build
+          cmake ..
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Copy files to package
+        run: |
+          ./build.sh mac
+          # build.sh 内部会调用 build_wheel，但这里我们手动控制
+          # 先执行前3步，第4步单独做
+        continue-on-error: true
+
+      - name: Package wheel manually
+        run: |
+          cd package
+          rm -rf dist
+          mkdir -p dist
+          pip wheel . -w dist/
+          ls -la dist/
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyctp-macos-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: package/dist/*.whl
+          retention-days: 7
+
+  # ============================================================================
+  # Linux 构建 (使用 manylinux 兼容的容器)
+  # ============================================================================
+  build-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        manylinux: [manylinux_2_28]
+        python-version: ['cp312']
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build in manylinux container
+        uses: addnab/docker-run-action@v3
+        with:
+          image: quay.io/pypa/${{ matrix.manylinux }}_x86_64
+          options: -v ${{ github.workspace }}:/workspace -e PLAT=${{ matrix.manylinux }}_x86_64
+          run: |
+            cd /workspace
+
+            # 安装构建依赖
+            yum install -y cmake swig boost-devel patchelf python3-devel || \
+            apt-get update && apt-get install -y cmake swig libboost-all-dev patchelf python3-dev || \
+            dnf install -y cmake swig boost-devel patchelf python3-devel
+
+            # 安装 Python 构建工具
+            python3 -m pip install --upgrade pip setuptools wheel build
+
+            # 编译 API
+            cd api
+            mkdir -p build && cd build
+            cmake ..
+            make -j$(nproc)
+            cd ../..
+
+            # 拷贝文件并设置 RPATH
+            ./build.sh linux
+            cd package
+
+            # 使用 auditwheel 修复 wheel
+            rm -rf dist
+            mkdir -p dist
+            pip wheel . -w dist/
+
+            # 修复 wheel 标签为 manylinux
+            for whl in dist/*.whl; do
+              auditwheel repair "$whl" --plat ${{ matrix.manylinux }}_x86_64 -w dist/
+              rm -f "$whl"
+            done
+
+            ls -la dist/
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyctp-linux-${{ matrix.manylinux }}-${{ matrix.python-version }}
+          path: package/dist/*.whl
+          retention-days: 7
+
+  # ============================================================================
+  # 发布 Release
+  # ============================================================================
+  release:
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: pyctp-*
+
+      - name: Collect wheels
+        run: |
+          mkdir -p release
+          find artifacts -name "*.whl" -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Get tag name
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          name: pyctp ${{ steps.get_tag.outputs.tag }}
+          body: |
+            pyctp wheel packages for macOS and Linux.
+
+            ## Supported Platforms
+            - macOS (arm64/x86_64 universal)
+            - Linux (manylinux compatible)
+
+            ## Install
+            ```bash
+            pip install pyctp --find-links https://github.com/csuduan/pyctp/releases
+            ```
+          files: release/*.whl
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
