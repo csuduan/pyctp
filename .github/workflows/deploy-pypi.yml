@@ -20,11 +20,22 @@ jobs:
       name: pypi
       url: https://pypi.org/p/ctpx
     steps:
-      - name: Download wheel artifacts from build-release
+      - name: Download wheel artifacts by run_id
+        if: ${{ github.event.inputs.run_id != '' }}
         uses: dawidd6/action-download-artifact@v8
         with:
           workflow: build-release.yml
           run_id: ${{ github.event.inputs.run_id }}
+          name: ctpx-*
+          name_is_regexp: true
+          path: dist/
+          if_no_artifact_found: fail
+
+      - name: Download latest wheel artifacts from main
+        if: ${{ github.event.inputs.run_id == '' }}
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          workflow: build-release.yml
           branch: main
           name: ctpx-*
           name_is_regexp: true
