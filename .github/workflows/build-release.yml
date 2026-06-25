@@ -90,8 +90,10 @@ jobs:
       - name: Output cibuildwheel log annotations on failure
         if: failure()
         run: |
-          echo "::error::cibuildwheel failed. Last 50 lines of log:"
-          tail -50 cibuildwheel.log | sed 's/^/::error::/' || true
+          echo "::error::cibuildwheel failed. Relevant error lines:"
+          grep -nEi 'error|failed|cmake|exception|traceback|fatal' cibuildwheel.log | tail -60 | sed 's/^/::error::/' || true
+          echo "::error::Last 30 lines of log:"
+          tail -30 cibuildwheel.log | sed 's/^/::error::/' || true
 
       - name: Upload wheel artifact
         if: success()
