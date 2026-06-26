@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "ctpx"
-version = "6.7.2.3"
+version = "6.7.2.5"
 requires-python = "==3.12.*"
 description = "CTP (China Futures Market) Python API Wrapper with multi-implementation support"
 dependencies = []
