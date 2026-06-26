@@ -55,6 +55,47 @@ jobs:
           retention-days: 7
 
   # ============================================================================
+  # Windows 构建
+  # ============================================================================
+  build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+        python-version: ['3.12']
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          choco install swig boost --yes
+          pip install --upgrade build
+
+      - name: Build wheel
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue dist, build, _skbuild
+          python -m build --wheel
+          Get-ChildItem dist\*.whl
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctpx-windows-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/*.whl
+          retention-days: 7
+
+  # ============================================================================
   # Linux 构建 (cibuildwheel + manylinux_2_34)
   # ============================================================================
   build-linux:
@@ -80,7 +121,7 @@ jobs:
   # 发布到 PyPI 并创建 GitHub Release
   # ============================================================================
   release-and-publish:
-    needs: [build-macos, build-linux]
+    needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -122,11 +163,12 @@ jobs:
           tag_name: ${{ steps.get_tag.outputs.tag }}
           name: ctpx ${{ steps.get_tag.outputs.tag }}
           body: |
-            ctpx wheel packages for macOS and Linux.
+            ctpx wheel packages for macOS, Linux and Windows.
 
             ## Supported Platforms
             - macOS (arm64, macOS >= 11.0)
             - Linux (x86_64, manylinux_2_34, compatible with Ubuntu 22.04+)
+            - Windows (x86_64, Windows 10/Server 2019+)
 
             ## Install
             ```bash

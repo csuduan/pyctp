@@ -48,7 +48,7 @@ endif()
 # 平台特定编译选项
 # -----------------------------------------------------------------------------
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    add_compile_options(/bigobj /MT)
+    add_compile_options(/bigobj /MD)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -188,6 +188,14 @@ function(build_impl IMPL_NAME)
         target_link_libraries(${TD_TARGET}
             thosttraderapi_se.lib
         )
+        if(BOOST_LIB_DIRS)
+            find_library(BOOST_LOCALE_LIB boost_locale PATHS ${BOOST_LIB_DIRS})
+            if(BOOST_LOCALE_LIB)
+                target_link_libraries(${TD_TARGET} ${BOOST_LOCALE_LIB})
+            else()
+                target_link_libraries(${TD_TARGET} boost_locale)
+            endif()
+        endif()
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set_target_properties(${TD_TARGET} PROPERTIES
             PREFIX ""
@@ -259,6 +267,14 @@ function(build_impl IMPL_NAME)
         target_link_libraries(${MD_TARGET}
             thostmduserapi_se.lib
         )
+        if(BOOST_LIB_DIRS)
+            find_library(BOOST_LOCALE_LIB boost_locale PATHS ${BOOST_LIB_DIRS})
+            if(BOOST_LOCALE_LIB)
+                target_link_libraries(${MD_TARGET} ${BOOST_LOCALE_LIB})
+            else()
+                target_link_libraries(${MD_TARGET} boost_locale)
+            endif()
+        endif()
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set_target_properties(${MD_TARGET} PROPERTIES
             PREFIX ""
