@@ -77,6 +77,18 @@ function(build_impl IMPL_NAME)
         return()
     endif()
 
+    # Windows 链接需要对应的导入库
+    if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        if(NOT EXISTS ${IMPL_BUILD_LIBS_DIR}/thosttraderapi_se.lib)
+            message(WARNING "Implementation ${IMPL_NAME} missing thosttraderapi_se.lib on Windows, skipping.")
+            return()
+        endif()
+        if(NOT EXISTS ${IMPL_BUILD_LIBS_DIR}/thostmduserapi_se.lib)
+            message(WARNING "Implementation ${IMPL_NAME} missing thostmduserapi_se.lib on Windows, skipping.")
+            return()
+        endif()
+    endif()
+
     message(STATUS "Building implementation: ${IMPL_NAME}")
     message(STATUS "  Includes: ${IMPL_INCLUDES_DIR}")
     message(STATUS "  Libraries: ${IMPL_BUILD_LIBS_DIR}")
@@ -186,6 +198,7 @@ function(build_impl IMPL_NAME)
         )
         target_link_directories(${TD_TARGET} PRIVATE ${IMPL_BUILD_LIBS_DIR})
         target_link_libraries(${TD_TARGET}
+            ${Python3_LIBRARIES}
             thosttraderapi_se.lib
         )
         if(BOOST_LIB_DIRS)
@@ -265,6 +278,7 @@ function(build_impl IMPL_NAME)
         )
         target_link_directories(${MD_TARGET} PRIVATE ${IMPL_BUILD_LIBS_DIR})
         target_link_libraries(${MD_TARGET}
+            ${Python3_LIBRARIES}
             thostmduserapi_se.lib
         )
         if(BOOST_LIB_DIRS)
