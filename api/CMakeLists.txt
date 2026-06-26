@@ -35,12 +35,14 @@ if(DEFINED ENV{BOOST_INCLUDE})
     set(BOOST_LIB_DIRS $ENV{BOOST_LIB})
     message(STATUS "Using Boost from environment: ${BOOST_INCLUDE_DIRS}")
 else()
-    find_package(Boost REQUIRED)
+    find_package(Boost REQUIRED COMPONENTS locale system)
     if(Boost_FOUND)
         set(BOOST_INCLUDE_DIRS ${Boost_INCLUDE_DIRS})
         set(BOOST_LIB_DIRS ${Boost_LIBRARY_DIRS})
         message(STATUS "Boost found: ${Boost_VERSION}")
         message(STATUS "Boost include: ${Boost_INCLUDE_DIRS}")
+        message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
+        message(STATUS "Boost library dirs: ${Boost_LIBRARY_DIRS}")
     endif()
 endif()
 
@@ -196,19 +198,15 @@ function(build_impl IMPL_NAME)
             PREFIX ""
             SUFFIX ".pyd"
         )
-        target_link_directories(${TD_TARGET} PRIVATE ${IMPL_BUILD_LIBS_DIR})
+        target_link_directories(${TD_TARGET} PRIVATE
+            ${IMPL_BUILD_LIBS_DIR}
+            ${Boost_LIBRARY_DIRS}
+        )
         target_link_libraries(${TD_TARGET}
             ${Python3_LIBRARIES}
+            ${Boost_LIBRARIES}
             thosttraderapi_se.lib
         )
-        if(BOOST_LIB_DIRS)
-            find_library(BOOST_LOCALE_LIB boost_locale PATHS ${BOOST_LIB_DIRS})
-            if(BOOST_LOCALE_LIB)
-                target_link_libraries(${TD_TARGET} ${BOOST_LOCALE_LIB})
-            else()
-                target_link_libraries(${TD_TARGET} boost_locale)
-            endif()
-        endif()
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set_target_properties(${TD_TARGET} PROPERTIES
             PREFIX ""
@@ -276,19 +274,15 @@ function(build_impl IMPL_NAME)
             PREFIX ""
             SUFFIX ".pyd"
         )
-        target_link_directories(${MD_TARGET} PRIVATE ${IMPL_BUILD_LIBS_DIR})
+        target_link_directories(${MD_TARGET} PRIVATE
+            ${IMPL_BUILD_LIBS_DIR}
+            ${Boost_LIBRARY_DIRS}
+        )
         target_link_libraries(${MD_TARGET}
             ${Python3_LIBRARIES}
+            ${Boost_LIBRARIES}
             thostmduserapi_se.lib
         )
-        if(BOOST_LIB_DIRS)
-            find_library(BOOST_LOCALE_LIB boost_locale PATHS ${BOOST_LIB_DIRS})
-            if(BOOST_LOCALE_LIB)
-                target_link_libraries(${MD_TARGET} ${BOOST_LOCALE_LIB})
-            else()
-                target_link_libraries(${MD_TARGET} boost_locale)
-            endif()
-        endif()
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set_target_properties(${MD_TARGET} PROPERTIES
             PREFIX ""
