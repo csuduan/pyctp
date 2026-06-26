@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          choco install swig boost --yes
+          choco install swig boost-msvc-14.3 --yes
           pip install --upgrade build
 
       - name: Build wheel
