@@ -339,6 +339,14 @@ function(build_impl IMPL_NAME)
         install(FILES ${IMPL_PREBUILT_LIBS} DESTINATION ctpx/${IMPL_NAME})
     endif()
 
+    # Windows：同时打包 Boost 运行时 DLL，避免 pyd 加载时报缺少 DLL
+    if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND Boost_LIBRARY_DIRS)
+        file(GLOB BOOST_DLLS "${Boost_LIBRARY_DIRS}/*boost_*.dll")
+        if(BOOST_DLLS)
+            install(FILES ${BOOST_DLLS} DESTINATION ctpx/${IMPL_NAME})
+        endif()
+    endif()
+
     # Linux：为 SONAME 不同的库创建符号链接，确保运行时加载器能找到
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND IMPL_PREBUILT_LIBS)
         foreach(lib_file ${IMPL_PREBUILT_LIBS})
